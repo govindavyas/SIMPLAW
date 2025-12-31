@@ -7,6 +7,7 @@ class AppSettingsService {
   static const String _elevenLabsKeyPref = 'elevenlabs_api_key';
   static const String _preferredLanguagePref = 'preferred_language';
   static const String _languageVoiceMapPrefix = 'language_voice_id_';
+  static const String _dismissedDisclaimerPref = 'dismissed_disclaimer_v1';
 
   /// Default (compile-time) ElevenLabs API key.
   /// Provide via --dart-define=ELEVENLABS_API_KEY=... if desired.
@@ -21,6 +22,28 @@ class AppSettingsService {
     } catch (e) {
       debugPrint('Failed to read ElevenLabs API key: $e');
       return null;
+    }
+  }
+
+  /// Returns whether the Important Notice/Disclaimer banner was dismissed.
+  Future<bool> isDisclaimerDismissed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_dismissedDisclaimerPref) ?? false;
+    } catch (e) {
+      debugPrint('Failed to read disclaimer dismissed state: $e');
+      return false;
+    }
+  }
+
+  /// Persists the dismissal state for the Important Notice/Disclaimer banner.
+  Future<bool> setDisclaimerDismissed(bool dismissed) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setBool(_dismissedDisclaimerPref, dismissed);
+    } catch (e) {
+      debugPrint('Failed to save disclaimer dismissed state: $e');
+      return false;
     }
   }
 

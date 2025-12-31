@@ -43,12 +43,28 @@ class DocumentAnalysisService {
       final prefs = await SharedPreferences.getInstance();
       final analyses = await getAllAnalyses();
       analyses.add(analysis);
-      
-      final jsonString = jsonEncode(analyses.map((a) => a.toJson()).toList());
+
+      // Keep history bounded to avoid storage quota issues on web (localStorage ~5MB)
+      const maxItems = 20;
+      final trimmed = analyses.length > maxItems
+          ? analyses.sublist(analyses.length - maxItems)
+          : analyses;
+
+      // Sanitize payload: do not persist large inline audio data URLs
+      final storable = trimmed.map((a) {
+        final json = a.toJson();
+        final audio = json['audioUrl'] as String?;
+        if (audio != null && audio.startsWith('data:audio/')) {
+          json['audioUrl'] = null; // skip persisting base64 audio on web
+        }
+        return json;
+      }).toList();
+
+      final jsonString = jsonEncode(storable);
       await prefs.setString(_storageKey, jsonString);
     } catch (e) {
+      // Non-fatal: failure to persist should not break UX (e.g., web quota)
       debugPrint('Failed to save analysis: $e');
-      rethrow;
     }
   }
 

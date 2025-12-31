@@ -138,8 +138,14 @@ class _ResultsPageState extends State<ResultsPage> {
         audioUrl: audioPath,
         updatedAt: DateTime.now(),
       );
-      await _analysisService.saveAnalysis(updatedAnalysis);
+      // Update UI first so audio is available even if persistence fails
       setState(() => _analysis = updatedAnalysis);
+      try {
+        await _analysisService.saveAnalysis(updatedAnalysis);
+      } catch (e) {
+        // Defensive: saveAnalysis already swallows, but keep guard in case of future changes
+        debugPrint('Non-fatal: could not persist updated analysis: $e');
+      }
 
       // If audio failed due to missing configuration, surface a helpful dialog
       if (audioPath == null) {
