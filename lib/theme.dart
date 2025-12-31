@@ -80,15 +80,15 @@ extension TextStyleExtensions on TextStyle {
 
 /// Trust-first color palette for SIMPLAW - Calm & Reassuring
 class LightModeColors {
-  // Primary: Soft indigo-blue for trust and calm
-  static const lightPrimary = Color(0xFF4F6BBA);
+  // Primary: Deep navy (trustworthy, premium legal-tech)
+  static const lightPrimary = Color(0xFF1E293B);
   static const lightOnPrimary = Color(0xFFFFFFFF);
-  static const lightPrimaryContainer = Color(0xFFE8EDFB);
-  static const lightOnPrimaryContainer = Color(0xFF2D3B6B);
+  static const lightPrimaryContainer = Color(0xFFEAF0FF);
+  static const lightOnPrimaryContainer = Color(0xFF0F172A);
 
-  // Secondary: Warm grey with subtle blue undertone
-  static const lightSecondary = Color(0xFF6B7589);
-  static const lightOnSecondary = Color(0xFFFFFFFF);
+  // Secondary: Gold accent for CTAs
+  static const lightSecondary = Color(0xFFF59E0B);
+  static const lightOnSecondary = Color(0xFF0F172A);
 
   // Tertiary: Soft slate
   static const lightTertiary = Color(0xFF5C6677);
@@ -100,12 +100,12 @@ class LightModeColors {
   static const lightErrorContainer = Color(0xFFFBEBEB);
   static const lightOnErrorContainer = Color(0xFF6B2D2D);
 
-  // Surface and background: Warm off-white with gentle tones
-  static const lightSurface = Color(0xFFFAFAFC);
-  static const lightOnSurface = Color(0xFF1A1D26);
-  static const lightBackground = Color(0xFFF5F6F8);
-  static const lightSurfaceVariant = Color(0xFFEEEFF3);
-  static const lightOnSurfaceVariant = Color(0xFF5C6677);
+  // Surface and background: Soft whites / cool greys
+  static const lightSurface = Color(0xFFFFFFFF);
+  static const lightOnSurface = Color(0xFF0F172A);
+  static const lightBackground = Color(0xFFF6F7FB);
+  static const lightSurfaceVariant = Color(0xFFF0F2F8);
+  static const lightOnSurfaceVariant = Color(0xFF334155);
 
   // Outline and shadow - very subtle
   static const lightOutline = Color(0xFFE4E6EB);
@@ -115,15 +115,15 @@ class LightModeColors {
 
 /// Dark mode with deep warm-grey base
 class DarkModeColors {
-  // Primary: Soft blue for dark background
-  static const darkPrimary = Color(0xFF8BA4E6);
-  static const darkOnPrimary = Color(0xFF1A2340);
-  static const darkPrimaryContainer = Color(0xFF2D3B6B);
-  static const darkOnPrimaryContainer = Color(0xFFD9E2F8);
+  // Primary: Slightly lighter navy for dark surfaces
+  static const darkPrimary = Color(0xFFB8C7FF);
+  static const darkOnPrimary = Color(0xFF0B1220);
+  static const darkPrimaryContainer = Color(0xFF1B2337);
+  static const darkOnPrimaryContainer = Color(0xFFE7ECFF);
 
-  // Secondary
-  static const darkSecondary = Color(0xFF9AA4B8);
-  static const darkOnSecondary = Color(0xFF1E2433);
+  // Secondary: Gold accent
+  static const darkSecondary = Color(0xFFFBBF24);
+  static const darkOnSecondary = Color(0xFF0B1220);
 
   // Tertiary
   static const darkTertiary = Color(0xFF7A8493);
@@ -135,11 +135,11 @@ class DarkModeColors {
   static const darkErrorContainer = Color(0xFF7A3333);
   static const darkOnErrorContainer = Color(0xFFF5D5D5);
 
-  // Surface and background: Warm dark grey
-  static const darkSurface = Color(0xFF14161A);
-  static const darkOnSurface = Color(0xFFE8E9ED);
-  static const darkSurfaceVariant = Color(0xFF1E2127);
-  static const darkOnSurfaceVariant = Color(0xFFB8BCC6);
+  // Surface and background: Deep slate
+  static const darkSurface = Color(0xFF0B1220);
+  static const darkOnSurface = Color(0xFFE6EAF2);
+  static const darkSurfaceVariant = Color(0xFF111A2C);
+  static const darkOnSurfaceVariant = Color(0xFFB6C2D9);
 
   // Outline and shadow
   static const darkOutline = Color(0xFF2D3139);
@@ -173,6 +173,9 @@ class FontSizes {
 /// Light theme with modern, neutral aesthetic
 ThemeData get lightTheme => ThemeData(
   useMaterial3: true,
+  splashFactory: NoSplash.splashFactory,
+  highlightColor: Colors.transparent,
+  splashColor: Colors.transparent,
   colorScheme: ColorScheme.light(
     primary: LightModeColors.lightPrimary,
     onPrimary: LightModeColors.lightOnPrimary,
@@ -215,8 +218,8 @@ ThemeData get lightTheme => ThemeData(
   ),
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
-      backgroundColor: LightModeColors.lightPrimary,
-      foregroundColor: LightModeColors.lightOnPrimary,
+      backgroundColor: LightModeColors.lightSecondary,
+      foregroundColor: LightModeColors.lightOnSecondary,
       elevation: 0,
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -254,6 +257,9 @@ ThemeData get lightTheme => ThemeData(
 /// Dark theme with good contrast and readability
 ThemeData get darkTheme => ThemeData(
   useMaterial3: true,
+  splashFactory: NoSplash.splashFactory,
+  highlightColor: Colors.transparent,
+  splashColor: Colors.transparent,
   colorScheme: ColorScheme.dark(
     primary: DarkModeColors.darkPrimary,
     onPrimary: DarkModeColors.darkOnPrimary,
@@ -296,8 +302,8 @@ ThemeData get darkTheme => ThemeData(
   ),
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
-      backgroundColor: DarkModeColors.darkPrimary,
-      foregroundColor: DarkModeColors.darkOnPrimary,
+      backgroundColor: DarkModeColors.darkSecondary,
+      foregroundColor: DarkModeColors.darkOnSecondary,
       elevation: 0,
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

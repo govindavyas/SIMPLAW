@@ -195,7 +195,7 @@ class _ResultsPageState extends State<ResultsPage> {
                   ),
                   IconButton(
                     tooltip: 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => context.pop(),
                     icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant),
                   ),
                 ],

@@ -9,15 +9,20 @@ import 'package:simplaw/theme.dart';
 /// - Right: settings button (optional)
 class MinimalHeader extends StatelessWidget {
   final bool showSettingsButton;
+  final EdgeInsetsGeometry padding;
 
-  const MinimalHeader({super.key, this.showSettingsButton = true});
+  const MinimalHeader({
+    super.key,
+    this.showSettingsButton = true,
+    this.padding = const EdgeInsets.only(top: AppSpacing.sm, left: AppSpacing.lg, right: AppSpacing.lg),
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final canPop = Navigator.of(context).canPop();
     return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.md, left: AppSpacing.lg, right: AppSpacing.lg),
+      padding: padding,
       child: Row(
         children: [
           // Back button (only if we can pop)
