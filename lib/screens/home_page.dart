@@ -20,11 +20,13 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+enum _UploadPhase { idle, uploading, analyzing }
+
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   final TextEditingController _textController = TextEditingController();
   String _selectedLanguage = 'English';
   VoiceTone _selectedVoiceTone = VoiceTone.calm;
-  bool _isFileFlowBusy = false;
+  _UploadPhase _uploadPhase = _UploadPhase.idle;
   late TabController _tabController;
   int _tabIndex = 0;
   final _settings = AppSettingsService();
@@ -98,48 +100,60 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _pickFile() async {
+    if (_uploadPhase != _UploadPhase.idle) return;
+
+    // Phase 1: Show "Uploading..." IMMEDIATELY before file picker opens
+    setState(() => _uploadPhase = _UploadPhase.uploading);
+
+    // Force a repaint by yielding to the event loop with a tiny delay
+    // This ensures the loader is visible before the native file picker blocks the thread
+    await Future.delayed(const Duration(milliseconds: 50));
+
     try {
-      if (_isFileFlowBusy) return;
-      setState(() => _isFileFlowBusy = true);
-
-      // Ensure the inline loader paints BEFORE the platform file picker opens.
-      // This prevents the “stuck for a second” perception.
-      await SchedulerBinding.instance.endOfFrame;
-
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'txt'],
-        // Always request bytes so we can process in-memory without UI freezes
         withData: true,
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.single;
-        final bytes = file.bytes;
-        if (bytes == null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Could not read file bytes. Please try another file.'),
-                backgroundColor: Theme.of(context).colorScheme.error,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            );
-          }
-          return;
-        }
+      if (result == null || result.files.isEmpty) {
+        // User cancelled - reset to idle
+        if (mounted) setState(() => _uploadPhase = _UploadPhase.idle);
+        return;
+      }
 
-        // Do NOT dump file content into the text box. Process silently.
-        // Navigate to results to start background analysis immediately.
+      // Phase 2: File selected - switch to "Analyzing..." state
+      if (mounted) setState(() => _uploadPhase = _UploadPhase.analyzing);
+
+      final file = result.files.single;
+      final bytes = file.bytes;
+
+      if (bytes == null) {
         if (mounted) {
-          await context.push('/results', extra: {
-            'fileName': file.name,
-            'fileBytes': bytes,
-            'language': _selectedLanguage,
-            'voiceTone': _selectedVoiceTone,
-          });
+          setState(() => _uploadPhase = _UploadPhase.idle);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Could not read file bytes. Please try another file.'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
         }
+        return;
+      }
+
+      // Small yield to ensure "Analyzing..." UI renders before navigation
+      await Future.delayed(const Duration(milliseconds: 30));
+
+      // Navigate to results for analysis
+      if (mounted) {
+        await context.push('/results', extra: {
+          'fileName': file.name,
+          'fileBytes': bytes,
+          'language': _selectedLanguage,
+          'voiceTone': _selectedVoiceTone,
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -153,9 +167,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         );
       }
     } finally {
-      // Clear any “selected file” state (we don’t keep one) and ensure the UI
-      // reflects reality when user returns from Results.
-      if (mounted) setState(() => _isFileFlowBusy = false);
+      // Always reset to idle when returning to this screen
+      if (mounted) setState(() => _uploadPhase = _UploadPhase.idle);
     }
   }
 
@@ -178,6 +191,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     });
   }
 
+  bool get _isBusy => _uploadPhase != _UploadPhase.idle;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -185,7 +200,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return Scaffold(
       floatingActionButton: _tabIndex == 1
           ? FloatingActionButton.extended(
-              onPressed: _isFileFlowBusy ? null : _pickFile,
+              onPressed: _isBusy ? null : _pickFile,
               backgroundColor: colorScheme.secondary,
               foregroundColor: colorScheme.onSecondary,
               elevation: 0,
@@ -217,17 +232,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 6),
-                      Text(
-                        'Simplify legal documents in seconds',
-                        style: context.textStyles.headlineSmall?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Upload a file or paste text — we’ll explain it clearly and read it out loud.',
-                        style: context.textStyles.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant, height: 1.5),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.sm),
                       _buildTabSelector(context),
                       const SizedBox(height: AppSpacing.sm),
                       _buildTabContent(context),
@@ -396,21 +401,38 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 150),
           switchInCurve: Curves.easeOut,
           switchOutCurve: Curves.easeIn,
           transitionBuilder: (child, animation) => FadeTransition(
             opacity: animation,
             child: SizeTransition(sizeFactor: animation, axisAlignment: -1, child: child),
           ),
-          child: _isFileFlowBusy
-              ? const _InlineAnalysisLoader(key: ValueKey('inline-loader'))
-              : const SizedBox(key: ValueKey('inline-loader-empty')),
+          child: _buildPhaseIndicator(),
         ),
         const SizedBox(height: AppSpacing.sm),
-        UploadDropZone(busy: _isFileFlowBusy, onPick: _isFileFlowBusy ? null : _pickFile),
+        UploadDropZone(busy: _isBusy, onPick: _isBusy ? null : _pickFile),
       ],
     );
+  }
+
+  Widget _buildPhaseIndicator() {
+    switch (_uploadPhase) {
+      case _UploadPhase.uploading:
+        return const _ProgressiveLoader(
+          key: ValueKey('uploading'),
+          message: 'Opening file picker…',
+          icon: Icons.folder_open_rounded,
+        );
+      case _UploadPhase.analyzing:
+        return const _ProgressiveLoader(
+          key: ValueKey('analyzing'),
+          message: 'Analyzing your document…',
+          icon: Icons.auto_awesome_rounded,
+        );
+      case _UploadPhase.idle:
+        return const SizedBox(key: ValueKey('idle'));
+    }
   }
 
   Widget _buildOptionsSection(BuildContext context) {
@@ -502,7 +524,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           options: options,
           value: _selectedLanguage,
           onChanged: (value) async {
-            if (_isFileFlowBusy) return;
+            if (_isBusy) return;
             setState(() => _selectedLanguage = value);
             await _settings.setPreferredLanguage(value);
           },
@@ -543,7 +565,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           options: toneOptions,
           value: _selectedVoiceTone == VoiceTone.friendly ? VoiceTone.calm : _selectedVoiceTone,
           onChanged: (tone) {
-            if (_isFileFlowBusy) return;
+            if (_isBusy) return;
             setState(() => _selectedVoiceTone = tone);
           },
         ),
@@ -555,7 +577,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final colorScheme = Theme.of(context).colorScheme;
     
     return ElevatedButton(
-      onPressed: _isFileFlowBusy ? null : _analyzeDocument,
+      onPressed: _isBusy ? null : _analyzeDocument,
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 18),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -578,38 +600,117 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 }
 
-class _InlineAnalysisLoader extends StatelessWidget {
-  const _InlineAnalysisLoader({super.key});
+class _ProgressiveLoader extends StatefulWidget {
+  const _ProgressiveLoader({
+    super.key,
+    required this.message,
+    required this.icon,
+  });
+
+  final String message;
+  final IconData icon;
+
+  @override
+  State<_ProgressiveLoader> createState() => _ProgressiveLoaderState();
+}
+
+class _ProgressiveLoaderState extends State<_ProgressiveLoader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2.2, color: colorScheme.primary),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Analyzing your document…',
-              style: context.textStyles.bodyMedium?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
-              ),
+
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md + 4),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.primary.withValues(alpha: 0.08 * _pulseAnimation.value),
+                colorScheme.secondary.withValues(alpha: 0.06 * _pulseAnimation.value),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.2),
+              width: 1.5,
             ),
           ),
-        ],
-      ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(widget.icon, color: colorScheme.primary, size: 20),
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.primary.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.message,
+                      style: context.textStyles.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Please wait…',
+                      style: context.textStyles.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
